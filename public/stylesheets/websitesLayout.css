@@ -1,0 +1,45 @@
+@charset "utf-8";
+html {} /* Browser bug causes 1st rule to be ignored, so add this dummy rule */
+
+.btn {
+    display: block;
+    width: 115px;
+    height: 25px;
+    background: #4E9CAF;
+    padding: 10px;
+    text-align: center;
+    border-radius: 5px;
+    color: white;
+    font-weight: bold;
+}
+
+.button {
+    -webkit-appearance: button;
+    -moz-appearance: button;
+    appearance: button;
+
+    text-decoration: none;
+    color: initial;
+    padding: 5px;
+}
+
+.file {
+    height: auto !important;
+    opacity: inherit !important;
+    position: inherit !important;
+    width: auto !important;
+}
+
+.image {
+    height:auto;
+    width: auto;
+    max-height: 300px;
+    max-width: 300px;
+    object-fit: contain;
+}
+
+.item {
+    border-style: solid;
+    border-color: blue;
+    padding: 10px;
+}
