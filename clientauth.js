@@ -194,6 +194,9 @@ function getId(req) {
 function getUserCertId(req) {
     let id = getId(req).id;
     console.log("B"+id);
+    if (id === undefined) {
+        return undefined;
+    }
     return users[id] ? users[id].certId : undefined;
 }
 
@@ -215,7 +218,7 @@ let requestLogin = function(req) {
     let query = "?conn="+encodeURI(JSON.stringify(connection));
 
     let qr = qrcode(QR_TYPE_NUMBER, QR_ERROR_CORRECTION_LEVEL);
-    qr.addData(ip+'/api/loginFromPhone'+query);
+    qr.addData(ip+'/api/loginFromPhone'+query); //JSON.stringify(connection);
     qr.make();
     console.log(ip+'/api/loginFromPhone'+query);
     const html = qr.createImgTag();

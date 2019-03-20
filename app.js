@@ -56,6 +56,7 @@ let defaultFailure = function(res,error) {
 function requireLogin(req,res,next) {
     clientauth.checkedLoggedIn(req,()=> {
         //req.query.info = info;
+        console.log("Logged in");
         next();
     }, () => {
         res.status(403).send("Not Authorized");
