@@ -4,7 +4,7 @@ const express = require('express');
 const app = express();
 const router = express.Router();
 const port = 8445;
-const ip = "http://192.168.254.229:3000";
+const ip = "https://letsauth.org/api";
 const clientauth = require('./clientauth');
 const photoContest = require('./photoContest');
 const cookieParser = require('cookie-parser');
@@ -43,8 +43,10 @@ app.use(function (req, res, next) {
     next();
 });
 
+let public_dir = path.join(__dirname, 'public');
+
 // Put static after the headers so that the headers are included here too
-app.use(express.static('./public'));
+app.use(express.static(public_dir));
 
 
 
@@ -117,7 +119,7 @@ app.put('/api/saveImage', (req,res) => {
     photoContest.saveImage(req,res);
 });
 
-app.get('/showExistingTokens', (req,res) => {
+app.get('/api/showExistingTokens', (req,res) => {
     clientauth.sendUserNameTokens(req,(info)=>{
         res.send(JSON.stringify(info));
     }, (error)=> {
@@ -126,7 +128,7 @@ app.get('/showExistingTokens', (req,res) => {
 });
 
 // Done with ClientAuth?
-app.get('/register', (req,res) => {
+app.get('/api/register', (req,res) => {
     clientauth.register(req,()=>{
         res.send("Registered");
     });
@@ -138,7 +140,7 @@ app.get('/register', (req,res) => {
     });
 });*/
 
-app.get('/test/', (req,res) => {
+app.get('/api/test/', (req,res) => {
     /*let pki = require('node-forge').pki;
 
     let caCert;
@@ -162,6 +164,10 @@ app.get('/test/', (req,res) => {
     var x509 = require('x509.js');
     var parsedData = x509.parseCert(fs.readFileSync('exampleCert.pem'));
     var a = parsedData;
+});
+
+app.get('/images/*', (req,res) => {
+    	
 });
 
 clientauth.load(ip);
