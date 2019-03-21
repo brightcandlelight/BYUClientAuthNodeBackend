@@ -71,11 +71,11 @@ app.post('/api/login', (req,res) => {
         res.setHeader('Access-Control-Expose-Headers', 'isLoggedIn');
         res.setHeader('isloggedin', true);
         res.status(200).send("");
-    }, (qrCodeHtml, id)=> {
+    }, (qrCodeHtml, id, loginUrl)=> {
         res.setHeader('Access-Control-Expose-Headers', 'id,isLoggedIn');
         res.setHeader('id', id);
         res.setHeader('isloggedin', false);
-        res.status(200).send(qrCodeHtml);
+        res.status(200).send({html: qrCodeHtml, url:loginUrl});
     });
 });
 
