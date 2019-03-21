@@ -215,15 +215,16 @@ function getAllUsersObj() {
 let requestLogin = function(req) {
     let id = generateUniqueUUID();
     let connection = {id, address: req.connection.remoteAddress, expires: getExpires(50)};
-    let query = "?conn="+encodeURI(JSON.stringify(connection));
+    let query = encodeURI(JSON.stringify(connection));
+    const loginUrl = ip+'/api/loginFromPhone?conn='+query;
 
     let qr = qrcode(QR_TYPE_NUMBER, QR_ERROR_CORRECTION_LEVEL);
-    qr.addData(ip+'/api/loginFromPhone'+query); //JSON.stringify(connection);
+    qr.addData(query); //JSON.stringify(connection);
     qr.make();
-    console.log(ip+'/api/loginFromPhone'+query);
+    console.log(loginUrl);
     const html = qr.createImgTag();
 
-    return [html, id];
+    return [html, id, loginUrl];
 };
 
 //InitConnection
