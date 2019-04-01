@@ -167,7 +167,8 @@ function sendUserNameTokens(req,success,failure) {
 }
 
 
-function register(req,success,failure) {
+function createaccount(req,success,failure) {
+    console.log("CA "+JSON.stringify(req.body));
     success();
 }
 
@@ -276,7 +277,7 @@ function checkedLoggedIn(req,funcIsLoggedIn, funcNotLoggedIn, displayLogin=true)
 
 module.exports.loginFromPhone = loginFromPhone;
 module.exports.logout = logout;
-module.exports.register = register;
+module.exports.createaccount = createaccount;
 module.exports.deleteAccount = deleteAccount;
 //module.exports.checkOrRequestLogin = checkOrRequestLogin;
 module.exports.load = loadCache;

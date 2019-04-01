@@ -5,6 +5,7 @@ const app = express();
 const router = express.Router();
 const port = 8445;
 const ip = "http://192.168.254.229:3000";
+//const ip = "http://localhost:8445";
 const clientauth = require('./clientauth');
 const photoContest = require('./photoContest');
 const cookieParser = require('cookie-parser');
@@ -63,8 +64,7 @@ function requireLogin(req,res,next) {
     }, false);
 }
 
-// Init the login function. Send the qr code. 1st step.
-app.post('/api/login', (req,res) => {
+let login = function(req,res) {
     clientauth.checkedLoggedIn(req,() => {
         res.setHeader('Access-Control-Expose-Headers', 'isLoggedIn');
         res.setHeader('isloggedin', true);
@@ -75,6 +75,11 @@ app.post('/api/login', (req,res) => {
         res.setHeader('isloggedin', false);
         res.status(200).send({html: qrCodeHtml, url:loginUrl});
     });
+};
+
+// Init the login function. Send the qr code. 1st step.
+app.post('/api/login', (req,res) => {
+    login(req,res);
 });
 
 //
@@ -126,9 +131,11 @@ app.get('/showExistingTokens', (req,res) => {
 });
 
 // Done with ClientAuth?
-app.get('/register', (req,res) => {
-    clientauth.register(req,()=>{
-        res.send("Registered");
+app.post('/api/createaccount', (req,res) => {
+    clientauth.createaccount(req,()=>{
+        login(req,res);
+    }, (error)=> {
+
     });
 });
 

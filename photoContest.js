@@ -33,6 +33,11 @@ function uploadPhoto(req,res) {
     });
 }
 
+let getCurrentWeek = function() {
+    return moment().isoWeek() - 8;
+};
+
+
 let saveFileToUser = function(req, filename) {
     const data = clientauth.getUserDataObj(req);
     const body = {
@@ -40,10 +45,11 @@ let saveFileToUser = function(req, filename) {
         url: "images/" + filename,
         fulldate: new Date(),
         date: moment().format("YYYY/MM/DD"),
-        week: moment().isoWeek()-8,
+        week: getCurrentWeek(),
         likes: 0,
         likedUsers: [],
-        categories: []
+        categories: [],
+        isCurrentWeek: true
     };
     if (!data.images) {
         data.images = [];
@@ -52,9 +58,16 @@ let saveFileToUser = function(req, filename) {
     clientauth.saveCache();
 };
 
-let calculateLikes = function(image, certId) {
+let calculateDynamicData = function(image, certId) {
+    // Calculate likes
     image.likes = image.likedUsers ? image.likedUsers.length : 0;
     image.likedByUser = image.likedUsers.includes(certId);
+
+    // Calculate if it is still in the current week.
+    // You can only like those that are in the current week
+    if (image.isCurrentWeek && image.week !== getCurrentWeek()) {
+        image.isCurrentWeek = false;
+    }
 };
 
 function showUserAccount(req,res) {
@@ -70,7 +83,7 @@ function showUserAccount(req,res) {
         data.userInfo.username = "";
     }
     for (const image of data.images || []) {
-        calculateLikes(image, certId);
+        calculateDynamicData(image, certId);
     }
     res.status(200).send(JSON.stringify(data));
 }
@@ -85,7 +98,7 @@ function showFeed(req,res) {
             const clone = {};
             Object.assign(clone, photo);
             clone.username = username;
-            calculateLikes(clone, certId);
+            calculateDynamicData(clone, certId);
             photos.push(clone);
         }
     }
@@ -137,7 +150,7 @@ function saveImage(req,res,next) {
             }
         }
         clientauth.saveCache();
-        calculateLikes(image,certId);
+        calculateDynamicData(image,certId);
     }
     res.status(200).send(image);
 }
