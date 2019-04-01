@@ -4,7 +4,7 @@ const express = require('express');
 const app = express();
 const router = express.Router();
 const port = 8445;
-const ip = "http://192.168.254.229:3000";
+const ip = "https://letsauth.org/api";
 //const ip = "http://localhost:8445";
 const clientauth = require('./clientauth');
 const photoContest = require('./photoContest');
@@ -44,8 +44,10 @@ app.use(function (req, res, next) {
     next();
 });
 
+let public_dir = path.join(__dirname, 'public');
+
 // Put static after the headers so that the headers are included here too
-app.use(express.static('./public'));
+app.use(express.static(public_dir));
 
 
 
@@ -122,7 +124,7 @@ app.put('/api/saveImage', (req,res) => {
     photoContest.saveImage(req,res);
 });
 
-app.get('/showExistingTokens', (req,res) => {
+app.get('/api/showExistingTokens', (req,res) => {
     clientauth.sendUserNameTokens(req,(info)=>{
         res.send(JSON.stringify(info));
     }, (error)=> {
@@ -145,7 +147,7 @@ app.post('/api/createaccount', (req,res) => {
     });
 });*/
 
-app.get('/test/', (req,res) => {
+app.get('/api/test/', (req,res) => {
     /*let pki = require('node-forge').pki;
 
     let caCert;
