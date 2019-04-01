@@ -85,7 +85,7 @@ app.post('/api/login', (req,res) => {
 });
 
 //
-app.get('/api/loginFromPhone', (req,res) => {
+app.post('/api/loginFromPhone', (req,res) => {
     clientauth.loginFromPhone(req, (connection)=>{
         console.log("Success");
         res.send("success");
@@ -134,8 +134,11 @@ app.get('/api/showExistingTokens', (req,res) => {
 
 // Done with ClientAuth?
 app.post('/api/createaccount', (req,res) => {
-    clientauth.createaccount(req,()=>{
-        login(req,res);
+    clientauth.createaccount(req,(qrCodeHtml, id, loginUrl)=> {
+        res.setHeader('Access-Control-Expose-Headers', 'id,isLoggedIn');
+        res.setHeader('id', id);
+        res.setHeader('isloggedin', false);
+        res.status(200).send({html: qrCodeHtml, url:loginUrl});
     }, (error)=> {
 
     });

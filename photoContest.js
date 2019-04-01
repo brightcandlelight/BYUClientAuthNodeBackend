@@ -77,10 +77,7 @@ function showUserAccount(req,res) {
         data.images = [];
     }
     if (!data.userInfo) {
-        data.userInfo = {username:""};
-    }
-    if (!data.userInfo.username) {
-        data.userInfo.username = "";
+        data.userInfo = {username: data.username};
     }
     for (const image of data.images || []) {
         calculateDynamicData(image, certId);

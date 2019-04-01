@@ -4,12 +4,12 @@ const fs = require('fs');
 const uuid = require('uuid');
 
 let ip;
-let users = {};
+let all_JSON = { };
 // {info: {name, expires, token}, connection:{ip,port,connection, etc}}
 const cache_file = "cache.txt";
 let lastSaved = 0;
 
-const QR_TYPE_NUMBER = 10;
+const QR_TYPE_NUMBER = 13;
 const QR_ERROR_CORRECTION_LEVEL = "L";
 const ALL_USERS = "C_ALL";
 
@@ -28,7 +28,7 @@ let getExpires = function(min=2) {
 };
 
 function saveCache() {
-    fs.writeFile(cache_file, JSON.stringify(users), (err) => {
+    fs.writeFile(cache_file, JSON.stringify(all_JSON), (err) => {
         if (err) {
             console.log("Error writing cache file");
         } else {
@@ -40,7 +40,7 @@ function saveCache() {
 
 function loadCache(ipaddr) {
     ip = ipaddr;
-    if (Object.keys(users).length === 0) {
+    if (Object.keys(all_JSON).length === 0) {
         // Cache is empty, loadCache from disk
         fs.exists(cache_file, (exists) => {
             // Is we have a cache, load it at the beginning
@@ -49,7 +49,7 @@ function loadCache(ipaddr) {
                     if (err) {
                         console.log("Error loading cache");
                     } else if (data) {
-                        users = JSON.parse(data);
+                        all_JSON = JSON.parse(data);
                         console.log("Loaded cache");
                     }
                 });
@@ -58,18 +58,21 @@ function loadCache(ipaddr) {
             }
         });  
     }
+    if (!all_JSON.users) {
+        all_JSON.users = {};
+    }
 }
 
 // Can logout by both the phone and cookies
 function logout(req,success,failure) {
     const id = req.headers.id;
     console.log(id);
-    if (users[id] !== undefined) {
-        let item = users[id];
-        users[item.certId].connections.filter((value,index,arr) => {
+    if (all_JSON.users[id] !== undefined) {
+        let item = all_JSON.users[id];
+        all_JSON.users[item.certId].connections.filter((value,index,arr) => {
             return value !== id;
         });
-        delete users[id];
+        delete all_JSON.users[id];
         saveCache();
     }
     success();
@@ -79,8 +82,8 @@ function logout(req,success,failure) {
 //See if client has been authorized for that token, if so return cookies for client.
 //Otherwise, try again
 /*function requestLogin(req,res,success,failure) {
-    if (users[req.query.id] !== undefined) {
-        success(users[req.query.id]);
+    if (all_JSON.users[req.query.id] !== undefined) {
+        success(all_JSON.users[req.query.id]);
     } else {
         failure("User not logged in");
         initConnection(req,res,success,failure);
@@ -88,7 +91,7 @@ function logout(req,success,failure) {
 }*/
 
 let tokenInDatabase = function(id) {
-    if (users[id]) {
+    if (all_JSON.users[id]) {
         return true;
     } else {
         return false;
@@ -96,10 +99,10 @@ let tokenInDatabase = function(id) {
 };
 
 function checkPermissions(id,req,funcIsLoggedIn,funcNotLoggedIn, displayLogin=true) {
-    if (tokenInDatabase(id) && new Date(users[id].expires) > new Date() &&
-            req.connection.remoteAddress === users[id].address) {
+    if (tokenInDatabase(id) && new Date(all_JSON.users[id].expires) > new Date() &&
+            req.connection.remoteAddress === all_JSON.users[id].address) {
         let query = "?id="+id;
-        funcIsLoggedIn({id:users[id], ip, query});
+        funcIsLoggedIn({id:all_JSON.users[id], ip, query});
     } else {
         if (displayLogin) {
             funcNotLoggedIn(...requestLogin(req));
@@ -118,40 +121,35 @@ let validateCerts = function(req) {
     return true;
 };
 
-let addTokenToDatabase = function(connection,certId="C1") {
+let addTokenToDatabase = function(connection,certId) {
     connection.certId = certId;
-    users[connection.id] = connection;
+    //const userInfo = { username: connection.username };
+    //connection.userInfo = userInfo;
+    all_JSON.users[connection.id] = connection;
 
-    // Add to the list this certId has
-    if (!users[certId]) {
-        users[certId] = {connections:[], data:{}};
-
-        // Add to the list of all users
-        if (!users[ALL_USERS]) {
-            users[ALL_USERS] = [];
-        }
-        if (!users[ALL_USERS].includes(certId)) {
-            users[ALL_USERS].push(certId);
-        }
-
-    }
-    users[certId].connections.push(connection.id);
+    all_JSON.users[certId].connections.push(connection.id);
 };
 
 function loginFromPhone(req,success,failure) {
-    let connection = JSON.parse(req.query.conn);
+    if (!req.body || !req.body.certId) {
+        failure("Missing data");
+        return;
+    }
+
+    let connection = req.body;
     console.log("ID"+connection.id);
-    if (users[connection.id] === undefined) {
+    if (all_JSON.users[connection.id] === undefined) {
         console.log("New user");
     }
 
-    if (requestRevoked(req) && validateCerts(req)) {
-        addTokenToDatabase(connection,req.query.certId);
+    // Make sure the account has first been created
+    if (requestRevoked(req) && validateCerts(req) && all_JSON.users[req.body.certId]) {
+        addTokenToDatabase(connection,req.body.certId);
     } else {
-        failure();
+        failure("Unable to verify account");
         return;
     }
-    //console.log(JSON.stringify(users));
+    //console.log(JSON.stringify(all_JSON.users));
     
     saveCache();
     success(connection);
@@ -160,16 +158,41 @@ function loginFromPhone(req,success,failure) {
 
 function sendUserNameTokens(req,success,failure) {
     if (requestRevoked(req) && validateCerts(req)) {
-        success(users[req.query.certId || "C1"] || []);
+        success(all_JSON.users[req.query.certId] || []);
     } else {
         failure();
     }
 }
 
+let validateRegistrationCode = function(code) {
+    return true;
+};
 
-function createaccount(req,success,failure) {
+
+function createaccount(req,funcNotLoggedIn,failure) {
     console.log("CA "+JSON.stringify(req.body));
-    success();
+    const certId = "C"+getShaHash(JSON.stringify(req.body.username));
+    console.log("CertId: "+certId);
+    const register = req.body.register;
+
+    // Add to the list this certId has
+    if (!all_JSON.users[certId] && validateRegistrationCode(register)) {
+        all_JSON.users[certId] = {connections:[], data:req.body};
+
+        // Add to the list of all users
+        if (!all_JSON.users[ALL_USERS]) {
+            all_JSON.users[ALL_USERS] = [];
+        }
+        if (!all_JSON.users[ALL_USERS].includes(certId)) {
+            all_JSON.users[ALL_USERS].push(certId);
+        }
+        req.body.certId = certId;
+        funcNotLoggedIn(...requestLogin(req));
+    } else if (validateRegistrationCode(register)) {
+        failure("Username already exists");
+    } else {
+        failure("Invalid registration code");
+    }
 }
 
 function deleteAccount(req,success,failure) {
@@ -179,7 +202,7 @@ function deleteAccount(req,success,failure) {
 
 function generateUniqueUUID(prefix="U") {
     let id = prefix+uuid.v4();
-    while (users[id] !== undefined) {
+    while (all_JSON.users[id] !== undefined) {
         id = prefix+uuid.v4();
     }
     return id;
@@ -198,17 +221,17 @@ function getUserCertId(req) {
     if (id === undefined) {
         return undefined;
     }
-    return users[id] ? users[id].certId : undefined;
+    return all_JSON.users[id] ? all_JSON.users[id].certId : undefined;
 }
 
 function getUserDataObj(req) {
-    return users[getUserCertId(req)].data;
+    return all_JSON.users[getUserCertId(req)].data;
 }
 
 function getAllUsersObj() {
     let list = {};
-    for (let key in users[ALL_USERS]) {
-        list[users[ALL_USERS][key]] = users[users[ALL_USERS][key]];
+    for (let key in all_JSON.users[ALL_USERS]) {
+        list[all_JSON.users[ALL_USERS][key]] = all_JSON.users[all_JSON.users[ALL_USERS][key]];
     }
     return list;
 }
@@ -216,8 +239,13 @@ function getAllUsersObj() {
 let requestLogin = function(req) {
     let id = generateUniqueUUID();
     let connection = {id, address: req.connection.remoteAddress, expires: getExpires(50)};
+    for (let key in req.body || {}) {
+        if (connection[key] === undefined) {
+            connection[key] = req.body[key];
+        }
+    }
     let query = encodeURI(JSON.stringify(connection));
-    const loginUrl = ip+'/api/loginFromPhone?conn='+query;
+    const loginUrl = JSON.stringify(connection); //ip+'/api/loginFromPhone?conn='+query;
 
     let qr = qrcode(QR_TYPE_NUMBER, QR_ERROR_CORRECTION_LEVEL);
     qr.addData(query); //JSON.stringify(connection);
@@ -254,12 +282,12 @@ function checkedLoggedIn(req,funcIsLoggedIn, funcNotLoggedIn, displayLogin=true)
     connection.id = getShaHash(JSON.stringify(connection));
     let query = "?conn="+encodeURI(JSON.stringify(connection));
     //console.log(JSON.stringify(connection));
-    //console.log(JSON.stringify(users));
-    if (users[connection.id] && users[connection.id].expires < new Date()) {
+    //console.log(JSON.stringify(all_JSON.users));
+    if (all_JSON.users[connection.id] && all_JSON.users[connection.id].expires < new Date()) {
         console.log("Expired");
     }
         
-    if (users[connection.id] === undefined || (users[connection.id].expires < new Date())) {
+    if (all_JSON.users[connection.id] === undefined || (all_JSON.users[connection.id].expires < new Date())) {
         let typeNumber = 10;
         let errorCorrectionLevel = 'L';
         let qr = qrcode(typeNumber, errorCorrectionLevel);
@@ -270,7 +298,7 @@ function checkedLoggedIn(req,funcIsLoggedIn, funcNotLoggedIn, displayLogin=true)
         res.status(200).send('<meta http-equiv="refresh" content="4"/> <!-- 4 sec interval-->Login<div>'+html+'</div><script></script>');
         failure();
     } else {
-        res.status(200).send("Now I am validated. Info: "+JSON.stringify(users[connection.id])+"<br><br><a href=\""+ip+"/logout"+query+"\">Logout</a><br>");
+        res.status(200).send("Now I am validated. Info: "+JSON.stringify(all_JSON.users[connection.id])+"<br><br><a href=\""+ip+"/logout"+query+"\">Logout</a><br>");
         success();
     }
 }*/
