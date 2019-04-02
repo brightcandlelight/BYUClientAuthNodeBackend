@@ -174,6 +174,7 @@ function createaccount(req,funcNotLoggedIn,failure) {
     const certId = "C"+getShaHash(JSON.stringify(req.body.username));
     console.log("CertId: "+certId);
     const register = req.body.register;
+    req.body.isAdmin = false;
 
     // Add to the list this certId has
     if (!all_JSON.users[certId] && validateRegistrationCode(register)) {

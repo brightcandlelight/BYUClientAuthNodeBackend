@@ -4,6 +4,8 @@ const uuid = require('uuid');
 const clientauth = require('./clientauth');
 const moment = require('moment');
 
+const points = {"1st": 0.75, "2nd": 0.50, "3rd": 0.25, "good": 0.10};
+
 function uploadPhoto(req,res) {
     console.log(req.headers.filename);
     let contents = [];
@@ -48,12 +50,22 @@ let saveFileToUser = function(req, filename) {
         week: getCurrentWeek(),
         likes: 0,
         likedUsers: [],
-        categories: [],
-        isCurrentWeek: true
+        isCurrentWeek: true,
+        points: 0
     };
     if (!data.images) {
         data.images = [];
     }
+    for (let i in data.images) {
+        const value = data.images[i];
+        if (value.date === body.date) {
+            data.images[i] = body;
+            clientauth.saveCache();
+            return;
+        }
+    }
+
+    // If we have gotten here, we are not replacing the current photo so add a new one
     data.images.push(body);
     clientauth.saveCache();
 };
@@ -142,8 +154,12 @@ function saveImage(req,res,next) {
                 if (image.likedUsers.includes(certId)) {
                     image.likedUsers.splice(image.likedUsers.indexOf(certId),1);
                 }
-            } else if (key === "categories" && certId === "C1") {
-                image.categories = req.body[key];
+            } else {
+                image[key] = req.body[key];
+                if (key === "winners" && points[req.body.winners]) {
+                    if (!image.points) { image.points = 0; }
+                    image.points += points[req.body.winners];
+                }
             }
         }
         clientauth.saveCache();
