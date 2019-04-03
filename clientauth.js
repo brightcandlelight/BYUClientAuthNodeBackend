@@ -38,6 +38,19 @@ function saveCache() {
     lastSaved = getMinutesSince1970();
 }
 
+let checkAndUpdateCache = function() {
+    if (!all_JSON.users) {
+        all_JSON.users = {};
+    }
+    if (!all_JSON.registrationCodes) {
+        all_JSON.registrationCodes = [];
+        for (let i =0; i <50;i++) {
+            all_JSON.registrationCodes.push("RC"+uuid.v4());
+        }
+        console.log(JSON.stringify(all_JSON.registrationCodes));
+    }
+};
+
 function loadCache(ipaddr) {
     ip = ipaddr;
     if (Object.keys(all_JSON).length === 0) {
@@ -51,6 +64,7 @@ function loadCache(ipaddr) {
                     } else if (data) {
                         all_JSON = JSON.parse(data);
                         console.log("Loaded cache");
+                        checkAndUpdateCache();
                     }
                 });
             } else {
@@ -58,9 +72,7 @@ function loadCache(ipaddr) {
             }
         });  
     }
-    if (!all_JSON.users) {
-        all_JSON.users = {};
-    }
+    checkAndUpdateCache();
 }
 
 // Can logout by both the phone and cookies
@@ -77,18 +89,6 @@ function logout(req,success,failure) {
     }
     success();
 }
-
-//RequestLogin
-//See if client has been authorized for that token, if so return cookies for client.
-//Otherwise, try again
-/*function requestLogin(req,res,success,failure) {
-    if (all_JSON.users[req.query.id] !== undefined) {
-        success(all_JSON.users[req.query.id]);
-    } else {
-        failure("User not logged in");
-        initConnection(req,res,success,failure);
-    }
-}*/
 
 let tokenInDatabase = function(id) {
     if (all_JSON.users[id]) {
@@ -157,15 +157,33 @@ function loginFromPhone(req,success,failure) {
 //endregion
 
 function sendUserNameTokens(req,success,failure) {
-    if (requestRevoked(req) && validateCerts(req)) {
-        success(all_JSON.users[req.query.certId] || []);
+    if (requestRevoked(req) && validateCerts(req) && req.query.certId && req.query.certId.substring(0,1) === "C"
+            && all_JSON.users[req.query.certId]) {
+        const connections = (all_JSON.users[req.query.certId].connections).slice(0) || []; // shallow clone
+        for (const i in connections) {
+            const value = connections[i];
+            if (all_JSON.users[value]) {
+                connections[i] = all_JSON.users[value];
+            } else {
+                connections[i] = {"id": value};
+            }
+        }
+        success(connections);
     } else {
         failure();
     }
 }
 
-let validateRegistrationCode = function(code) {
-    return true;
+// Makes sure we are using a registration code and removes it from the available list.
+let validateRegistrationCode = function(register) {
+    for (let i in all_JSON.registrationCodes) {
+        const value = all_JSON.registrationCodes[i];
+        if (register === value) {
+            all_JSON.registrationCodes.splice(i,1);
+            return true;
+        }
+    }
+    return false;
 };
 
 
@@ -174,10 +192,13 @@ function createaccount(req,funcNotLoggedIn,failure) {
     const certId = "C"+getShaHash(JSON.stringify(req.body.username));
     console.log("CertId: "+certId);
     const register = req.body.register;
-    req.body.isAdmin = false;
+    if (req.body.isAdmin === undefined) {
+        req.body.isAdmin = false;
+    }
 
     // Add to the list this certId has
-    if (!all_JSON.users[certId] && validateRegistrationCode(register)) {
+    const registrationCodeIsValid = validateRegistrationCode(register);
+    if (!all_JSON.users[certId] && registrationCodeIsValid) {
         all_JSON.users[certId] = {connections:[], data:req.body};
 
         // Add to the list of all users
@@ -189,10 +210,10 @@ function createaccount(req,funcNotLoggedIn,failure) {
         }
         req.body.certId = certId;
         funcNotLoggedIn(...requestLogin(req));
-    } else if (validateRegistrationCode(register)) {
-        failure("Username already exists");
+    } else if (registrationCodeIsValid) {
+        failure({error: "Username already exists"});
     } else {
-        failure("Invalid registration code");
+        failure({error: "Invalid registration code"});
     }
 }
 
@@ -211,7 +232,7 @@ function generateUniqueUUID(prefix="U") {
 
 // This is now the backend. The id will be passed to us in the body
 function getId(req) {
-    const id = req.headers && req.headers.id ? req.headers.id : undefined;
+    const id = (req && req.headers && req.headers.id) ? req.headers.id : undefined;
     console.log("Id:"+id);
     return {id:id, hasId: !!id};
 }
@@ -226,6 +247,10 @@ function getUserCertId(req) {
 }
 
 function getUserDataObj(req) {
+    const certId = getUserCertId(req);
+    if (!certId || !all_JSON.users[getUserCertId(req)]) {
+        return undefined;
+    }
     return all_JSON.users[getUserCertId(req)].data;
 }
 
@@ -234,6 +259,36 @@ function getAllUsersObj() {
     for (let key in all_JSON.users[ALL_USERS]) {
         list[all_JSON.users[ALL_USERS][key]] = all_JSON.users[all_JSON.users[ALL_USERS][key]];
     }
+    return list;
+}
+
+function getAllUsersObjAdmin(req) {
+    const isAdmin = (getId(req) && getUserDataObj(req)) ? getUserDataObj(req).isAdmin : false;
+    let list = [];
+
+    if (isAdmin) {
+        for (let key in all_JSON.users[ALL_USERS]) {
+            const user_info = all_JSON.users[all_JSON.users[ALL_USERS][key]];
+
+            let points=0;
+            for (const images of user_info.data.images || []) {
+                points+=images.points || 0;
+            }
+
+            list.push({
+                // the user_info.data.username is the original username they signed up with. Show the latest instead (fallback to original)
+                username: user_info.data.userInfo ? user_info.data.userInfo.username : user_info.data.username,
+                email: user_info.data.email,
+                register: user_info.data.register,
+                certId: user_info.data.certId,
+                something: all_JSON.users[ALL_USERS][key],
+                points
+            });
+        }
+    } else {
+        list = ["forbidden"];
+    }
+
     return list;
 }
 
@@ -320,3 +375,4 @@ module.exports.getUserDataObj = getUserDataObj;
 module.exports.saveCache = saveCache;
 module.exports.getAllUsersObj = getAllUsersObj;
 module.exports.getUserCertId = getUserCertId;
+module.exports.getAllUsersObjAdmin = getAllUsersObjAdmin;

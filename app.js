@@ -124,12 +124,18 @@ app.put('/api/saveImage', (req,res) => {
     photoContest.saveImage(req,res);
 });
 
+// Show places I am logged in. For the phone app to use
 app.get('/api/showExistingTokens', (req,res) => {
     clientauth.sendUserNameTokens(req,(info)=>{
         res.send(JSON.stringify(info));
     }, (error)=> {
         defaultFailure(res,error);
     })
+});
+
+app.get('/api/getAllUsersObj', requireLogin, (req,res) => {
+    const info = clientauth.getAllUsersObjAdmin(req);
+    res.send(JSON.stringify(info));
 });
 
 // Done with ClientAuth?
@@ -140,7 +146,7 @@ app.post('/api/createaccount', (req,res) => {
         res.setHeader('isloggedin', false);
         res.status(200).send({html: qrCodeHtml, url:loginUrl});
     }, (error)=> {
-
+        res.status(202).send(error);
     });
 });
 

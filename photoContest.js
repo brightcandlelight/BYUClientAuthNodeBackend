@@ -98,17 +98,19 @@ function showUserAccount(req,res) {
 }
 
 function showFeed(req,res) {
-    const allUsers = clientauth.getAllUsersObj();
+    const allUsers = clientauth.getAllUsersObj(req);
     const certId = clientauth.getUserCertId(req);
     const photos = [];
     for (const key in allUsers) {
-        const username = allUsers[key].data.userInfo ? allUsers[key].data.userInfo.username : "";
-        for (const photo of allUsers[key].data.images || []) {
-            const clone = {};
-            Object.assign(clone, photo);
-            clone.username = username;
-            calculateDynamicData(clone, certId);
-            photos.push(clone);
+        if (allUsers[key].data) {
+            const username = (allUsers[key].data.userInfo) ? allUsers[key].data.userInfo.username : "";
+            for (const photo of allUsers[key].data.images || []) {
+                const clone = {};
+                Object.assign(clone, photo);
+                clone.username = username;
+                calculateDynamicData(clone, certId);
+                photos.push(clone);
+            }
         }
     }
     res.status(200).send({images:photos});
@@ -126,8 +128,8 @@ function saveUserInfo(req,res,next) {
     clientauth.saveCache();
 }
 
-let getImage = function(filename) {
-    const allUsers = clientauth.getAllUsersObj();
+let getImage = function(req, filename) {
+    const allUsers = clientauth.getAllUsersObj(req);
     for (const key in allUsers) {
         for (const photo of allUsers[key].data.images || []) {
             if (photo.filename === filename) {
@@ -167,19 +169,6 @@ function saveImage(req,res,next) {
     }
     res.status(200).send(image);
 }
-
-function downloadImage(req,res,next) {
-    let EMSKey=req.sanitize(req.query.EMSKey);
-    let gedcomName=req.sanitize(req.query.gedcomName);
-
-    // Force it to download as a file
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader("Content-disposition", "attachment;filename=\"" + gedcomName+"\"");
-    aggregationClient.downloadGedcom(EMSKey,gedcomName, res);
-}
-
-/**/
-
 
 module.exports.saveUserInfo = saveUserInfo;
 module.exports.showFeed = showFeed;
