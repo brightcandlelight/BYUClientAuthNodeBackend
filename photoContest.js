@@ -142,7 +142,7 @@ let getImage = function(req, filename) {
 
 function saveImage(req,res,next) {
     const filename = req.body.filename;
-    const image = getImage(filename);
+    const image = getImage(req, filename);
     const certId = clientauth.getUserCertId(req);
     if (image !== null) {
         delete req.body.filename;
