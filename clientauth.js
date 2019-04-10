@@ -47,8 +47,10 @@ let checkAndUpdateCache = function() {
         for (let i =0; i <50;i++) {
             all_JSON.registrationCodes.push("RC"+uuid.v4());
         }
-        console.log(JSON.stringify(all_JSON.registrationCodes));
+        console.log("New codes");
     }
+    saveCache();
+    console.log(JSON.stringify(all_JSON.registrationCodes));
 };
 
 function loadCache(ipaddr) {
@@ -301,7 +303,7 @@ let requestLogin = function(req) {
         }
     }
     let query = encodeURI(JSON.stringify(connection));
-    const loginUrl = JSON.stringify(connection); //ip+'/api/loginFromPhone?conn='+query;
+    const loginUrl = "/phone?info="+encodeURI(JSON.stringify(connection)); //ip+'/api/loginFromPhone?conn='+query;
 
     let qr = qrcode(QR_TYPE_NUMBER, QR_ERROR_CORRECTION_LEVEL);
     qr.addData(query); //JSON.stringify(connection);
