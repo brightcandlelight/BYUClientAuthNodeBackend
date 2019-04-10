@@ -49,7 +49,6 @@ let checkAndUpdateCache = function() {
         }
         console.log("New codes");
     }
-    saveCache();
     console.log(JSON.stringify(all_JSON.registrationCodes));
 };
 
@@ -63,18 +62,21 @@ function loadCache(ipaddr) {
                 fs.readFile(cache_file, 'utf8', function (err, data) {
                     if (err) {
                         console.log("Error loading cache");
+                        checkAndUpdateCache();
                     } else if (data) {
                         all_JSON = JSON.parse(data);
                         console.log("Loaded cache");
                         checkAndUpdateCache();
+                        saveCache();
                     }
                 });
             } else {
                 console.log("Cache file does not exist, skipping");
+                checkAndUpdateCache();
+                saveCache();
             }
         });  
     }
-    checkAndUpdateCache();
 }
 
 // Can logout by both the phone and cookies
